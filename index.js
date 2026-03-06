@@ -12,7 +12,7 @@ app.post('/speak', (req, res) => {
             const message = {
                 event_name: "text_input_detected",
                 payload: { chat_id, content: { text, type: "text" } },
-                token: "ba0ccd80-15df-43e7-a7d7-c4fe36865730", 
+                token: "189fad1f-0866-4f59-95c3-bd5632ddd98d", 
                 auth: { auth_token, user_id: "630964df975f560007b5c02c" }
             };
             ws.send(JSON.stringify(message));
