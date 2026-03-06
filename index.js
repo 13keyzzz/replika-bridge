@@ -4,7 +4,7 @@ const app = express();
 app.use(express.json());
 
 app.post('/speak', (req, res) => {
-    const { auth_token, chat_id, text } = req.body;
+    const { auth_token, chat_id, text, token } = req.body; // Token is now dynamic!
     const ws = new WebSocket('wss://my.replika.com/v17');
 
     ws.on('open', () => {
@@ -12,7 +12,7 @@ app.post('/speak', (req, res) => {
             const message = {
                 event_name: "text_input_detected",
                 payload: { chat_id, content: { text, type: "text" } },
-                token: "189fad1f-0866-4f59-95c3-bd5632ddd98d", 
+                token: token, 
                 auth: { auth_token, user_id: "630964df975f560007b5c02c" }
             };
             ws.send(JSON.stringify(message));
@@ -24,8 +24,7 @@ app.post('/speak', (req, res) => {
     });
 
     ws.on('error', (err) => {
-        console.error('WS Error:', err);
-        if (!res.headersSent) res.status(500).send({ error: 'Bridge failed to connect to Replika' });
+        if (!res.headersSent) res.status(500).send({ error: 'Bridge failed' });
     });
 });
 
