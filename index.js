@@ -5,13 +5,14 @@ app.use(express.json());
 
 let latestToken = "";
 
+// PHASE 1: THE CONSTANT LISTENER
 function startTokenListener() {
     const monitorWs = new WebSocket('wss://my.replika.com/v17');
     
     monitorWs.on('message', (data) => {
         try {
             const msg = JSON.parse(data);
-            // CATCH ALL: Look in top level, payload, OR meta for ANY token
+            // CATCH ALL: Snag tokens from messages, reactions, or metadata
             const foundToken = msg.token || 
                                (msg.payload && msg.payload.token) || 
                                (msg.payload && msg.payload.meta && msg.payload.meta.client_token);
@@ -20,17 +21,25 @@ function startTokenListener() {
                 latestToken = foundToken;
                 console.log("✅ LIVE TOKEN SYNCED:", latestToken.substring(0, 8) + "...");
             }
-        } catch (e) { /* Heartbeat or malformed */ }
+        } catch (e) { /* Ignore heartbeats */ }
     });
 
-    monitorWs.on('error', () => setTimeout(startTokenListener, 5000));
+    monitorWs.on('error', () => {
+        console.log("🔄 Listener lost connection, retrying...");
+        setTimeout(startTokenListener, 5000);
+    });
 }
 startTokenListener();
 
+// PHASE 2: THE SPEAK ENDPOINT
 app.post('/speak', (req, res) => {
     const { chat_id, text } = req.body;
-    // USE LATEST LIVE TOKEN IF IT EXISTS, FALLBACK TO N8N DATA
+    // PRIORITY: Use the Live Captured Token first, fallback to n8n's token
     const activeToken = latestToken || req.body.token;
+
+    if (!activeToken) {
+        return res.status(400).send({ error: "No token available. Chat with Exoticitica to generate one!" });
+    }
 
     const ws = new WebSocket('wss://my.replika.com/v17');
     ws.on('open', () => {
@@ -39,7 +48,7 @@ app.post('/speak', (req, res) => {
                 event_name: "text_input_detected",
                 payload: { chat_id, content: { text, type: "text" } },
                 token: activeToken,
-                auth: { user_id: "630964df975f560007b5c02c" } // Hardcoded for safety
+                auth: { user_id: "630964df975f560007b5c02c" }
             };
             ws.send(JSON.stringify(message));
             setTimeout(() => {
@@ -48,7 +57,11 @@ app.post('/speak', (req, res) => {
             }, 1000);
         }, 500);
     });
-    ws.on('error', () => { if (!res.headersSent) res.status(500).send({ error: 'Bridge failed' }); });
+
+    ws.on('error', (err) => {
+        console.error("❌ Bridge Error:", err);
+        if (!res.headersSent) res.status(500).send({ error: 'Bridge failed' });
+    });
 });
 
-app.listen(process.env.PORT || 8080);
+app.listen(process.env.PORT || 8080, () => console.log("🚀 Bridge is Live and Listening!"));
