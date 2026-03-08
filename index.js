@@ -9,15 +9,20 @@ let latestToken = "";
 function startTokenListener() {
     const monitorWs = new WebSocket('wss://my.replika.com/v17');
     
-    monitorWs.on('message', (data) => {
-        try {
-            const msg = JSON.parse(data);
-            if (msg.token) {
-                latestToken = msg.token;
-                console.log("New Token Captured:", latestToken);
-            }
-        } catch (e) { console.log("Parsing error"); }
-    });
+   monitorWs.on('message', (data) => {
+    try {
+        const msg = JSON.parse(data);
+        // Look in the top level OR inside the meta object you just found
+        const foundToken = msg.token || (msg.payload && msg.payload.meta && msg.payload.meta.client_token);
+        
+        if (foundToken) {
+            latestToken = foundToken;
+            console.log("✅ New Token Captured:", latestToken);
+        }
+    } catch (e) { 
+        console.log("Parsing error or heartbeat packet"); 
+    }
+}); 
 
     monitorWs.on('error', (err) => {
         console.log("Listener error, retrying in 5s...");
